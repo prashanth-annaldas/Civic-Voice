@@ -1,77 +1,46 @@
+from dotenv import load_dotenv
+import os
 from google import genai
 from PIL import Image
-import os
+import io
 
-# 🔑 Set your API key (or use an environment variable)
-API_KEY = "AIzaSyAsgHPYjpVyiJQMdrK5lflCrO2wLZ8Mqy8"  # <-- replace with your key
+# Load environment variables
+load_dotenv()
+
+API_KEY = os.getenv("GOOGLE_API_KEY")
+
+if not API_KEY:
+    raise RuntimeError("GOOGLE_API_KEY is not set")
 
 client = genai.Client(api_key=API_KEY)
 
 
-def detect_issue(image_path: str) -> str:
-    """
-    Classify the image into exactly one of:
-    - pothole
-    - garbage
-    - water_leak
-    - unknown
-    """
-    if not os.path.exists(image_path):
-        return "file_not_found"
-
-    # Load image with PIL (this is supported directly by the SDK)
-    img = Image.open(image_path)
+def detect_issue(image_bytes: bytes) -> str:
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
     prompt = """
-You are a strict image classifier.
-Look at the image and respond with EXACTLY ONE of these labels:
-
+Return ONLY one label:
 pothole
 garbage
 water_leak
+street_light
 unknown
+"""
 
-Respond with only the label, no extra words.
-""".strip()
-
-    # Call Gemini vision model
     response = client.models.generate_content(
-        model="gemini-2.5-flash",      # current multimodal model
-        contents=[prompt, img]         # text + image
+        model="gemini-2.5-flash",
+        contents=[prompt, image]
     )
 
-    # Safely read the text
-    raw = (response.text or "").strip().lower()
+    text = (response.text or "").lower()
 
-    # Take only the first line to avoid any extra content
-    raw = raw.splitlines()[0].strip()
-
-    # Exact matching for labels
-    if raw == "pothole":
+    if "pothole" in text:
         return "pothole"
-    if raw == "garbage":
+    elif "garbage" in text:
         return "garbage"
-    if raw in ("water_leak", "water leak", "water-leak"):
+    elif "water" in text:
         return "water_leak"
-    if raw == "unknown":
+    elif "light" in text:
+        return "street_light"
+    else:
         return "unknown"
-
-    # Small fallback: look for label words inside the response
-    if "pothole" in raw:
-        return "pothole"
-    if "garbage" in raw:
-        return "garbage"
-    if "water_leak" in raw or "water leak" in raw:
-        return "water_leak"
-    if "unknown" in raw:
-        return "unknown"
-
-    return "unknown"
-
-
-# 🔍 LOCAL TEST
-if __name__ == "__main__":
-    # Make sure test.jpeg exists in the same folder, or change the path
-    image_path = "test1.jpeg"
-    result = detect_issue(image_path)
-    print("FINAL CLASSIFICATION:", result)
