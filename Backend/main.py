@@ -1,11 +1,23 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from gemini import detect_issue
+from email_service import send_issue_email
+from database import engine, SessionLocal, Base
+from models import Issue, User
+from schemas import RegisterRequest
+from auth_utils import hash_password
+from auth_utils import verify_password
 import os
 import uuid
 
 app = FastAPI()
+
+# Create DB tables
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,49 +29,124 @@ app.add_middleware(
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-issues = []
+# Serve uploaded images
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# ---------------- REGISTER USER ----------------
+@app.post("/register", status_code=201)
+def register_user(data: RegisterRequest, db: Session = Depends(get_db)):
+    hashed_password = hash_password(data.password)
+
+    user = User(
+        email=data.email,
+        password=hashed_password
+    )
+
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    return {
+        "message": "User registered successfully",
+        "email": user.email
+    }
+
+@app.post("/login")
+def login_user(data: RegisterRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == data.email).first()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    if not verify_password(data.password, user.password):
+        raise HTTPException(status_code=400, detail="Invalid password")
+
+    return {
+        "message": "Login successful",
+        "user": {
+            "id": user.id,
+            "email": user.email
+        }
+    }
+
+
+# ---------------- UPLOAD ISSUE ----------------
 @app.post("/upload")
 async def upload(
     file: UploadFile = File(...),
     lat: float = Form(...),
     lng: float = Form(...),
-    description: str = Form("")
+    description: str = Form(""),
+    db: Session = Depends(get_db)
 ):
     try:
         image_bytes = await file.read()
 
-        # Save image
         filename = f"{UPLOAD_DIR}/{uuid.uuid4()}.jpg"
         with open(filename, "wb") as f:
             f.write(image_bytes)
 
         label = detect_issue(image_bytes)
 
-        issue = {
-            "type": label,
-            "lat": lat,
-            "lng": lng,
-            "status": "Pending",
-            "image": filename,
-            "description": description,
-        }
+        issue = Issue(
+            type=label,
+            lat=lat,
+            lng=lng,
+            status="Pending",
+            image=filename,
+            description=description
+        )
 
-        issues.append(issue)
+        db.add(issue)
+        db.commit()
+        db.refresh(issue)
+
+        # Email notification (safe)
+        try:
+            send_issue_email(
+                {
+                    "type": label,
+                    "lat": lat,
+                    "lng": lng,
+                    "status": "Pending",
+                    "description": description
+                },
+                filename
+            )
+        except Exception as e:
+            print("Email failed:", e)
 
         return {
             "success": True,
-            "issue": issue
+            "issue": {
+                "id": issue.id,
+                "type": issue.type,
+                "lat": issue.lat,
+                "lng": issue.lng,
+                "status": issue.status,
+                "image": issue.image,
+                "description": issue.description,
+            }
         }
 
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+# ---------------- GET ALL ISSUES ----------------
 @app.get("/issues")
-def get_issues():
-    return issues
+def get_issues(db: Session = Depends(get_db)):
+    return db.query(Issue).all()
