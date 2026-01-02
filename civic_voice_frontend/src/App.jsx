@@ -11,7 +11,7 @@ import Location from './components/geoLocation.jsx';
 function App() {
   return (
     <>
-    <NavBarHome />
+    <Register />
     <Outlet />
     </>
     );
