@@ -21,7 +21,7 @@ function Register() {
       return;
     }
     try{
-      const res = await fetch("http://localhost:5000/register",{
+      const res = await fetch("http://localhost:8000/register",{
         method:"POST",
         headers:{"Content-type": "application/json"},
         body:JSON.stringify({
@@ -31,9 +31,10 @@ function Register() {
       })
       const data = await res.json();
       if(!res.ok){
-        setErr(data.msg);
+        setErr(data.detail || data.msg || "Registration failed");
         return;
       }
+      alert("Registration successful");
       navigate('/Home');
     }
     catch(error){
