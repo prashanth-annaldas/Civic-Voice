@@ -19,3 +19,11 @@ class Issue(Base):
     status = Column(String)
     image = Column(String)
     description = Column(String)
+
+class Request(Base):
+    __tablename__ = "requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    description = Column(String)
+    latitude = Column(Float)
+    longitude = Column(Float)
