@@ -18,7 +18,7 @@ function Login() {
     try{
       const res = await fetch("http://localhost:8000/login",{
         method:"POST",
-        headers:{"Content-type": "application/json"},
+        headers:{"Content-Type": "application/json"},
         body:JSON.stringify({
           email: email,
           password: pass,
@@ -26,10 +26,16 @@ function Login() {
       })
       const data = await res.json();
       if(!res.ok){
-        setErr(data.msg);
+        setErr(data.detail || "Login failed");
         return;
       }
-      navigate('/home');
+      if (!data.access_token) {
+        setErr("Invalid server response");
+        return;
+      }
+      localStorage.setItem("token", data.access_token);
+
+      navigate("/home", { replace: true });
     }
     catch(error){
       setErr("Server Error");
@@ -74,7 +80,7 @@ function Login() {
           <button className="btn btn-primary w-100 py-2" type="submit">
             Login
           </button>
-          {err && <div>{err}</div>}
+          {err && <div className="text-white">{err}</div>}
         </form>
       </main>
     </div>
