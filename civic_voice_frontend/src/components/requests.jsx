@@ -46,11 +46,9 @@ function Requests() {
 
   return (
     <div className="requests-page d-flex justify-content-center align-items-center vh-100">
-      {/* page background */}
 
       <div className="container d-flex justify-content-center">
         <div className="col-md-6 requests-card">
-          {/* glass card */}
 
           <div className="mb-3">
             <label className="form-label fw-semibold">
@@ -59,7 +57,7 @@ function Requests() {
             <textarea
               className="form-control"
               rows="4"
-              placeholder="Write problem details..."
+              placeholder="Write request details..."
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
