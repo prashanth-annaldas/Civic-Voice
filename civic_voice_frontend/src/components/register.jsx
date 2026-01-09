@@ -2,6 +2,9 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+/* ✅ ADD THIS HERE */
+const API_URL = import.meta.env.VITE_API_URL;
+
 function Register() {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
@@ -12,17 +15,19 @@ function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setErr("");
+
     if (!email || !pass || !confirmPass) {
       setErr("Please fill all fields!");
       return;
     }
+
     if (pass !== confirmPass) {
       setErr("Passwords do not match!");
       return;
     }
 
     try {
-      const res = await fetch("http://localhost:8000/register", {
+      const res = await fetch(`${API_URL}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -37,6 +42,7 @@ function Register() {
         setErr(data.detail || data.msg || "Registration failed");
         return;
       }
+
       alert("Registration successful");
       navigate("/home");
     } catch (error) {
@@ -46,10 +52,7 @@ function Register() {
 
   return (
     <div className="d-flex align-items-center justify-content-center vh-100 bg-light loginRegisterBG">
-      <main
-        className="shadow rounded p-4 boxx"
-        style={{ maxWidth: "400px", width: "100%" }}
-      >
+      <main className="shadow rounded p-4 boxx" style={{ maxWidth: "400px", width: "100%" }}>
         <form onSubmit={handleRegister}>
           <center>
             <h1 className="text-white mb-3">Register</h1>
@@ -59,44 +62,40 @@ function Register() {
             <input
               type="email"
               className="form-control"
-              id="email"
               value={email}
-              placeholder="name@example.com"
               onChange={(e) => setEmail(e.target.value)}
             />
-            <label htmlFor="email">Email address</label>
+            <label>Email address</label>
           </div>
 
           <div className="form-floating mb-3">
             <input
               type="password"
               className="form-control"
-              id="password"
               value={pass}
-              placeholder="Password"
               onChange={(e) => setPass(e.target.value)}
             />
-            <label htmlFor="password">Password</label>
+            <label>Password</label>
           </div>
 
           <div className="form-floating mb-3">
             <input
               type="password"
               className="form-control"
-              id="confirmPassword"
               value={confirmPass}
-              placeholder="Confirm Password"
               onChange={(e) => setConfirmPass(e.target.value)}
             />
-            <label htmlFor="confirmPassword">Confirm Password</label>
+            <label>Confirm Password</label>
           </div>
 
           <button className="btn btn-primary w-100 py-2" type="submit">
             Register
           </button>
+
           <p className="mt-3 mb-0 text-white">
             Already have an account? <Link to="/login">Login</Link>
           </p>
+
           {err && <div className="text-white mt-2">{err}</div>}
         </form>
       </main>
