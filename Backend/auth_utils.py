@@ -5,7 +5,7 @@ from typing import Optional
 import os
 
 pwd_context = CryptContext(
-    schemes=["argon2"],
+    schemes=["argon2", "bcrypt"],
     deprecated="auto"
 )
 
