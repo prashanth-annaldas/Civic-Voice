@@ -9,6 +9,8 @@ function Requests() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
 
+  const API_BASE = "https://civic-voice-backend-c55n.onrender.com";
+
   const handleSubmit = async () => {
     if (!text) {
       alert("Please describe the problem");
@@ -23,7 +25,7 @@ function Requests() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8000/requests", {
+      const res = await fetch(`${API_BASE}/requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

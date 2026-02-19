@@ -22,6 +22,7 @@ function Problems() {
   };
 
   const handleSubmit = async () => {
+    const API_BASE = "https://civic-voice-backend-c55n.onrender.com";
     if (!file) {
       alert("Please upload an image");
       return;
@@ -42,7 +43,7 @@ function Problems() {
     formData.append("description", text);
 
     try {
-      const res = await fetch("http://localhost:8000/upload", {
+      const res = await fetch(`${API_BASE}/upload`, {
         method: "POST",
         body: formData,
       });

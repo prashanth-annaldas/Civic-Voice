@@ -4,8 +4,10 @@ import IssuesMap from "./issueMap";
 function Home() {
   const [issues, setIssues] = useState([]);
 
+  const API_BASE = "https://civic-voice-backend-c55n.onrender.com";
+
   useEffect(() => {
-    fetch("http://localhost:8000/issues")
+    fetch(`${API_BASE}/issues`)
       .then((res) => res.json())
       .then((data) => setIssues(data))
       .catch((err) => console.error(err));
