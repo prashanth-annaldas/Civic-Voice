@@ -1,8 +1,8 @@
 import os
-import io
 from dotenv import load_dotenv
-from PIL import Image
 import google.generativeai as genai
+from PIL import Image
+import io
 
 load_dotenv()
 
@@ -17,9 +17,9 @@ def detect_issue(image_bytes: bytes) -> str:
         return "unknown"
 
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+        model = genai.GenerativeModel("gemini-1.5-flash")
 
         prompt = """
 Return ONLY one label:
@@ -32,6 +32,7 @@ unknown
 """
 
         response = model.generate_content([prompt, image])
+
         text = (response.text or "").lower()
 
         if "pothole" in text:
@@ -42,7 +43,7 @@ unknown
             return "Water Leak"
         elif "light" in text:
             return "Street Light"
-        elif "electric" in text:
+        elif "transformer" in text:
             return "Electric Transformer"
         else:
             return "unknown"
