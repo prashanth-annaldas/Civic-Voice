@@ -4,22 +4,22 @@ from google import genai
 from PIL import Image
 import io
 
-# Load environment variables
 load_dotenv()
 
 API_KEY = os.getenv("GOOGLE_API_KEY")
 
+
 def detect_issue(image_bytes: bytes) -> str:
+    # If no API key, safely return unknown
     if not API_KEY:
         return "unknown"
-        
-client = genai.Client(api_key=API_KEY)
 
+    try:
+        client = genai.Client(api_key=API_KEY)
 
-def detect_issue(image_bytes: bytes) -> str:
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
-    prompt = """
+        prompt = """
 Return ONLY one label:
 pothole
 garbage
@@ -29,22 +29,26 @@ electric_transformer
 unknown
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=[prompt, image]
-    )
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt, image]
+        )
 
-    text = (response.text or "").lower()
+        text = (response.text or "").lower()
 
-    if "pothole" in text:
-        return "Pothole"
-    elif "garbage" in text:
-        return "Garbage"
-    elif "water" in text:
-        return "Water Leak"
-    elif "light" in text:
-        return "Street Light"
-    elif "electric_transformer" in text:
-        return "Electric Transformer"
-    else:
+        if "pothole" in text:
+            return "Pothole"
+        elif "garbage" in text:
+            return "Garbage"
+        elif "water" in text:
+            return "Water Leak"
+        elif "light" in text:
+            return "Street Light"
+        elif "electric" in text:
+            return "Electric Transformer"
+        else:
+            return "unknown"
+
+    except Exception as e:
+        print("Gemini error:", e)
         return "unknown"
