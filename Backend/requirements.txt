@@ -12,3 +12,4 @@ pillow
 google-genai
 pydantic
 google-generativeai
+psycopg2-binary
