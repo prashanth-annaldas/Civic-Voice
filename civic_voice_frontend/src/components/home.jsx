@@ -11,7 +11,7 @@ function Home() {
   useEffect(() => {
     fetch(`${API_BASE}/issues`)
       .then((res) => res.json())
-      .then((data) => setIssues(data))
+      .then((data) => setIssues(Array.isArray(data) ? data : []))
       .catch(console.error);
   }, []);
 

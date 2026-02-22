@@ -18,11 +18,11 @@ function Admin() {
   const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
   useEffect(() => {
-    fetch(`${API_BASE}/issues`).then(res => res.json()).then(setIssues).catch(console.error);
-    fetch(`${API_BASE}/analytics`).then(res => res.json()).then(setAnalytics).catch(console.error);
-    fetch(`${API_BASE}/predictive-risks`).then(res => res.json()).then(setRisks).catch(console.error);
-    fetch(`${API_BASE}/area-health`).then(res => res.json()).then(setHealth).catch(console.error);
-    fetch(`${API_BASE}/city-mood`).then(res => res.json()).then(setMood).catch(console.error);
+    fetch(`${API_BASE}/issues`).then(res => res.json()).then(data => setIssues(Array.isArray(data) ? data : [])).catch(console.error);
+    fetch(`${API_BASE}/analytics`).then(res => res.json()).then(data => setAnalytics(data && data.type_distribution ? data : null)).catch(console.error);
+    fetch(`${API_BASE}/predictive-risks`).then(res => res.json()).then(data => setRisks(Array.isArray(data) ? data : [])).catch(console.error);
+    fetch(`${API_BASE}/area-health`).then(res => res.json()).then(data => setHealth(Array.isArray(data) ? data : [])).catch(console.error);
+    fetch(`${API_BASE}/city-mood`).then(res => res.json()).then(data => setMood(data && data.frustration_patterns ? data : null)).catch(console.error);
   }, [API_BASE]);
 
   return (
