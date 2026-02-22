@@ -44,8 +44,8 @@ function Register() {
         return;
       }
 
-      alert("Registration successful");
-      navigate("/home");
+      alert("Registration successful! Please login.");
+      navigate("/login");
     } catch (error) {
       setErr("Server Error");
     }

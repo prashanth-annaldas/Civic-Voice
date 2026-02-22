@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Outlet, Navigate } from "react-router-dom";
+import { Outlet, Navigate, useNavigate } from "react-router-dom";
 import NavBarHome from "./navBarHome";
 import ProfileSetup from "./profileSetup";
 
@@ -7,6 +7,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 function HomeLayout() {
   const token = localStorage.getItem("token");
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
@@ -23,6 +24,9 @@ function HomeLayout() {
           if (!user.name) {
             setShowProfileSetup(true);
           }
+        } else if (res.status === 401) {
+          localStorage.removeItem("token");
+          navigate("/login", { replace: true });
         }
       } catch (err) {
         console.error("Checking profile failed");
@@ -31,7 +35,7 @@ function HomeLayout() {
       }
     };
     checkProfile();
-  }, [token]);
+  }, [token, navigate]);
 
   const isValidToken =
     token &&
