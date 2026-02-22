@@ -108,6 +108,30 @@ function Account() {
                             />
                         </div>
 
+                        {user && (
+                            <div className="mb-4 p-3 bg-light rounded text-center">
+                                <h5>🌟 Civic Reputation</h5>
+                                <div className="d-flex justify-content-around mt-3">
+                                    <div>
+                                        <p className="mb-0 text-muted">Points</p>
+                                        <h3 className="fw-bold text-success">{user.points || 0}</h3>
+                                    </div>
+                                    <div>
+                                        <p className="mb-0 text-muted">Trust Score</p>
+                                        <h3 className="fw-bold text-primary">{user.trust_score || 100}</h3>
+                                    </div>
+                                </div>
+                                {(user.badges && user.badges.length > 0) && (
+                                    <div className="mt-3">
+                                        <p className="mb-1 text-muted">Badges:</p>
+                                        {user.badges.map((b, i) => b.trim() && (
+                                            <span key={i} className="badge bg-warning text-dark me-1 py-1 px-2">🎖️ {b.trim()}</span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {message && <div className="alert alert-success">{message}</div>}
                         {error && <div className="alert alert-danger">{error}</div>}
 

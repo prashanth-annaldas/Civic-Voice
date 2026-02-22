@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import NavBarHome from "./navBarHome";
 import ProfileSetup from "./profileSetup";
+import Chatbot from "./Chatbot";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -57,6 +58,7 @@ function HomeLayout() {
     <>
       <NavBarHome />
       <Outlet />
+      <Chatbot />
       {showProfileSetup && (
         <ProfileSetup onProfileUpdated={() => setShowProfileSetup(false)} />
       )}

@@ -25,6 +25,11 @@ def send_issue_email(issue_data: dict, image_path: str | None = None):
     issue_type = issue_data.get("type", "unknown")
     status = issue_data.get("status", "Pending")
     description = issue_data.get("description", "")
+    severity = issue_data.get("severity", 0)
+    department = issue_data.get("department", "Unassigned")
+
+    is_emergency = severity >= 85
+    msg["Subject"] = f"🚨 URGENT ESCALATION: {issue_type}" if is_emergency else f"📋 New Civic Issue: {issue_type} ({department})"
 
     maps_link = (
         f"https://www.google.com/maps?q={lat},{lng}"
@@ -34,10 +39,12 @@ def send_issue_email(issue_data: dict, image_path: str | None = None):
 
     # Plain text fallback
     text_body = f"""
-New civic issue reported.
+{'URGENT ESCALATION - SEVERITY CRITICAL' if is_emergency else 'New civic issue reported.'}
 
 Type: {issue_type}
 Status: {status}
+Severity Score: {severity}/100
+Routed Department: {department}
 
 Latitude: {lat}
 Longitude: {lng}
@@ -49,14 +56,19 @@ Map:
 {maps_link}
 """
 
+    emerg_html = "<h3 style='color:red;'>⚠️ URGENT ESCALATION - CRITICAL SEVERITY</h3>" if is_emergency else ""
+    
     # HTML email
     html_body = f"""
     <html>
         <body style="font-family: Arial, sans-serif;">
-            <h2>🚨 New Civic Issue Reported</h2>
-
+            <h2>{'🚨 Critical' if is_emergency else '📋 New'} Civic Issue Reported</h2>
+            {emerg_html}
+            
             <p><b>Type:</b> {issue_type}</p>
             <p><b>Status:</b> {status}</p>
+            <p><b>Severity Score:</b> <span style="color:{'red' if is_emergency else 'black'}">{severity}/100</span></p>
+            <p><b>Routed Department:</b> {department}</p>
 
             <p>
                 <b>Location:</b><br>
