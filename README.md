@@ -1,2 +1,0 @@
-# CivicVoice
-Help municpality
