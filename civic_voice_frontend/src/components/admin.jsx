@@ -26,7 +26,7 @@ function Admin() {
   }, [API_BASE]);
 
   return (
-    <div style={{ backgroundColor: "#f8f9fa", minHeight: "100vh", padding: "2rem" }}>
+    <div style={{ backgroundColor: "#f8f9fa", minHeight: "100vh", padding: "2rem", paddingTop: "100px" }}>
       <div className="container-fluid">
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h2 style={{ fontWeight: "700", color: "#2c3e50" }}>🏙️ Civic Analytics Control Center</h2>
