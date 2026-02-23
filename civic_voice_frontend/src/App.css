@@ -63,14 +63,39 @@ h6 {
   z-index: 1000;
 }
 
+@keyframes loginGradientAnim {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes floatBox {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+    box-shadow: 0 30px 40px -10px rgb(0 0 0 / 0.2);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
 .loginRegisterBG {
-  background:
-    radial-gradient(circle at 15% 50%, rgba(79, 70, 229, 0.15), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(14, 165, 233, 0.15), transparent 25%),
-    var(--bg-color);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: linear-gradient(-45deg, #4f46e5, #0ea5e9, #1e1b4b, #0c4a6e);
+  background-size: 400% 400%;
+  animation: loginGradientAnim 12s ease infinite;
 }
 
 .boxx {
@@ -81,6 +106,7 @@ h6 {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
   color: var(--text-main);
+  animation: floatBox 6s ease-in-out infinite;
 }
 
 .logo {
