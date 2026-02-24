@@ -24,16 +24,27 @@ function LocationInput({ setLat, setLng }) {
 
         try {
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+            {
+              headers: {
+                "Accept-Language": "en-US,en;q=0.9",
+              }
+            }
           );
-          const data = await res.json();
-
-          setAddress(data.display_name || "Location found");
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const text = await res.text();
+          try {
+            const data = JSON.parse(text);
+            setAddress(data.display_name || "Location found");
+          } catch (e) {
+            throw new Error("Invalid JSON from geocoder");
+          }
         } catch (err) {
-          setAddress("Location detected (address unavailable)");
+          console.error("Geocoding error:", err);
+          setAddress(`Location detected, but address unavailable (${err.message})`);
         }
-
-        setLoading(false);
       },
       () => {
         setError("Permission denied or location unavailable");

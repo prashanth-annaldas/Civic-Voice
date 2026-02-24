@@ -244,13 +244,29 @@ def update_me(data: UserUpdateModel, current_user: User = Depends(get_current_us
 
 # ---------------- CREATE MANUAL REQUEST ----------------
 @app.post("/requests")
-def create_request(data: RequestIn, db: Session = Depends(get_db)):
+def create_request(data: RequestIn, request: Request, db: Session = Depends(get_db)):
+    uploader_id = None
+    user_email = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            uid = payload.get("sub")
+            user = db.query(User).filter(User.id == uid).first()
+            if user:
+                uploader_id = user.id
+                user_email = user.email
+        except Exception as e:
+            print("Token warning:", e)
+
     issue = Issue(
         description=data.description,
         lat=data.latitude,
         lng=data.longitude,
         status="Pending",
-        type="Manual"
+        type="Manual",
+        user_id=uploader_id
     )
 
     db.add(issue)
@@ -264,7 +280,7 @@ def create_request(data: RequestIn, db: Session = Depends(get_db)):
             "lng": data.longitude,
             "status": "Pending",
             "type": "Manual"
-        })
+        }, user_email=user_email)
     except Exception as e:
         print("Email failed:", e)
 
@@ -305,6 +321,7 @@ async def upload(
         
         # Determine User for Points
         uploader_id = None
+        user_email = None
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
@@ -314,6 +331,7 @@ async def upload(
                 user = db.query(User).filter(User.id == uid).first()
                 if user:
                     uploader_id = user.id
+                    user_email = user.email
                     user.points += 10
                     # Check for badges
                     if user.points >= 100 and "Civic Champion" not in user.badges:
@@ -324,7 +342,7 @@ async def upload(
                 print("Token warning:", e)
 
         # AI Analysis
-        ai_data = analyze_issue(image_bytes, lat, lng, len(nearby_issues))
+        ai_data = analyze_issue(image_bytes, lat, lng, len(nearby_issues), description)
         
         if ai_data.get("is_fake"):
             return JSONResponse(status_code=400, content={"error": "Fake upload detected: Image GPS does not match reported location."})
@@ -389,7 +407,8 @@ async def upload(
                     "severity": ai_data["severity_score"],
                     "department": ai_data["department"]
                 },
-                filename
+                filename,
+                user_email=user_email
             )
         except Exception as e:
             print("Email failed:", e)
@@ -412,6 +431,21 @@ async def upload(
             }
         }
 
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# ---------------- GENERATE DESCRIPTION (AI) ----------------
+@app.post("/generate-description")
+async def api_generate_description(
+    file: UploadFile = File(...),
+    lat: float = Form(...),
+    lng: float = Form(...)
+):
+    try:
+        from ai_engine import generate_description
+        image_bytes = await file.read()
+        description = generate_description(image_bytes, lat, lng)
+        return {"description": description}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 

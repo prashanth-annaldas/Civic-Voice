@@ -11,14 +11,16 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
 
 
-def send_issue_email(issue_data: dict, image_path: str | None = None):
+def send_issue_email(issue_data: dict, image_path: str | None = None, user_email: str | None = None):
     if not EMAIL_SENDER or not EMAIL_PASSWORD or not EMAIL_RECEIVER:
         raise ValueError("Missing email environment variables")
 
     msg = EmailMessage()
     msg["From"] = EMAIL_SENDER
-    msg["To"] = EMAIL_RECEIVER
-    msg["Subject"] = "🚨 New Civic Issue Reported"
+    recipients = [EMAIL_RECEIVER]
+    if user_email and user_email not in recipients:
+        recipients.append(user_email)
+    msg["To"] = ", ".join(recipients)
 
     lat = issue_data.get("lat", "N/A")
     lng = issue_data.get("lng", "N/A")

@@ -46,9 +46,13 @@ function Chatbot() {
                 const { latitude, longitude } = position.coords;
                 try {
                     // We'll use the existing /requests endpoint which takes description, lat, lng
+                    const token = localStorage.getItem("token");
+                    const headers = { "Content-Type": "application/json" };
+                    if (token) headers["Authorization"] = `Bearer ${token}`;
+
                     const res = await fetch(`${API_URL}/requests`, {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: headers,
                         body: JSON.stringify({
                             description: `[AI Reported] ${parsedData.issue_type} near ${parsedData.location} | Urgency: ${parsedData.urgency} | ${parsedData.description}`,
                             latitude,

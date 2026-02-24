@@ -6,7 +6,9 @@ from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import io
 import math
+from dotenv import load_dotenv
 
+load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")
 if API_KEY:
     genai.configure(api_key=API_KEY)
@@ -64,7 +66,7 @@ def get_exif_gps(image):
     if gps_info.get("GPSLongitudeRef") != "E": lng = -lng
     return lat, lng
 
-def analyze_issue(image_bytes: bytes, lat: float, lng: float, similar_issues_count: int = 0) -> dict:
+def analyze_issue(image_bytes: bytes, lat: float, lng: float, similar_issues_count: int = 0, user_description: str = "") -> dict:
     """
     Analyzes the issue image using Gemini, considers nearby POIs, EXIF GPS, and calculates a severity score.
     Returns: label, damage_level, severity_score, department, is_fake
@@ -90,14 +92,16 @@ def analyze_issue(image_bytes: bytes, lat: float, lng: float, similar_issues_cou
         pois = get_nearby_pois(lat, lng)
         poi_context = "None" if not pois else ", ".join(pois)
 
-        model = genai.GenerativeModel("gemini-1.5-flash") # 1.5 is better at JSON
+        model = genai.GenerativeModel("gemini-2.5-flash") # 2.5 is latest
+
+        desc_context = f"\n        - User Description: {user_description}" if user_description else ""
 
         prompt = f"""
         You are an AI City Governance Assistant. Analyze the provided image of a city issue.
         Context:
         - Location: Lat {lat}, Lng {lng}
         - Nearby Critical Locations (within 500m): {poi_context}
-        - Number of similar previous complaints in this area: {similar_issues_count}
+        - Number of similar previous complaints in this area: {similar_issues_count}{desc_context}
 
         Task:
         1. Identify the issue type (e.g., Pothole, Garbage, Water Leak, Street Light, Electric Transformer, etc.).
@@ -120,7 +124,13 @@ def analyze_issue(image_bytes: bytes, lat: float, lng: float, similar_issues_cou
 
         response = model.generate_content([prompt, image])
         # Clean markdown formatting from response if present
-        text = response.text.replace("```json", "").replace("```", "").strip()
+        text = response.text.strip()
+        print("Gemini Raw Response:", text)
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
         result = json.loads(text)
         
         # Ensure it falls into expected bounds
@@ -131,9 +141,11 @@ def analyze_issue(image_bytes: bytes, lat: float, lng: float, similar_issues_cou
 
     except Exception as e:
         print("AI Analysis Error:", e)
+        print("Raw text that failed parsing:", text if 'text' in locals() else 'None')
         import traceback
         traceback.print_exc()
         res = default_analysis()
+        res["issue_type"] = f"Unknown (Error: {str(e)})"
         res["is_fake"] = is_fake
         return res
 
@@ -153,3 +165,31 @@ def categorize_severity(score: int) -> str:
         return "Medium"
     else:
         return "Critical"
+
+def generate_description(image_bytes: bytes, lat: float, lng: float) -> str:
+    """
+    Analyzes the image and returns a short natural language description of the problem.
+    """
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        pois = get_nearby_pois(lat, lng)
+        poi_context = "none" if not pois else ", ".join(pois)
+        
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        
+        prompt = f"""
+        You are a helpful assistant reporting a civic issue or infrastructure problem to the city.
+        Look at the provided photo of the issue.
+        The issue is located at Lat {lat}, Lng {lng}. 
+        Nearby landmarks: {poi_context}.
+        
+        Write a concise, professional, clear 1-3 sentence description of the problem exactly as you see it in the image, 
+        suitable for submitting to a city maintenance department. Do not use quotes or introductory phrases. Just the description.
+        """
+        
+        response = model.generate_content([prompt, image])
+        text = response.text.strip()
+        return text
+    except Exception as e:
+        print("Generate description error:", e)
+        return "Failed to generate description automatically. Please enter it manually."

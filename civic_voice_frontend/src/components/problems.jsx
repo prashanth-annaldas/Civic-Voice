@@ -9,6 +9,7 @@ function Problems() {
   const [text, setText] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const [generatingDesc, setGeneratingDesc] = useState(false);
 
   const [lat, setLat] = useState(null);
   const [lng, setLng] = useState(null);
@@ -19,6 +20,40 @@ function Problems() {
 
     setFile(selected);
     setPreview(URL.createObjectURL(selected));
+  };
+
+  const handleGenerateDescription = async () => {
+    const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+    if (!file) {
+      alert("Please upload an image first to generate a description.");
+      return;
+    }
+    if (lat === null || lng === null) {
+      alert("Please allow location access first.");
+      return;
+    }
+
+    setGeneratingDesc(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("lat", lat);
+    formData.append("lng", lng);
+
+    try {
+      const res = await fetch(`${API_BASE}/generate-description`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.description) {
+        setText(data.description);
+      } else {
+        alert(data.error || "Failed to generate description");
+      }
+    } catch (err) {
+      alert("Server error while generating description");
+    }
+    setGeneratingDesc(false);
   };
 
   const handleSubmit = async () => {
@@ -42,9 +77,14 @@ function Problems() {
     formData.append("lng", lng);
     formData.append("description", text);
 
+    const token = localStorage.getItem("token");
+    const headers = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     try {
       const res = await fetch(`${API_BASE}/upload`, {
         method: "POST",
+        headers: headers,
         body: formData,
       });
 
@@ -53,7 +93,7 @@ function Problems() {
       if (res.ok) {
         setResult(data.issue.type);
       } else {
-        setResult("Upload failed");
+        setResult(data.error || "Upload failed");
       }
     } catch (err) {
       setResult("Server error");
@@ -136,9 +176,23 @@ function Problems() {
               </div>
 
               <div className="mb-4">
-                <label className="form-label fw-bold text-dark mb-2">
-                  Describe the problem
-                </label>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <label className="form-label fw-bold text-dark mb-0">
+                    Describe the problem
+                  </label>
+                  <button
+                    className="btn btn-sm btn-outline-primary rounded-pill fw-bold"
+                    onClick={handleGenerateDescription}
+                    disabled={generatingDesc || !file || lat === null}
+                    style={{ fontSize: '0.85rem' }}
+                  >
+                    {generatingDesc ? (
+                      <><span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generating...</>
+                    ) : (
+                      <><i className="bi bi-magic me-1"></i> Generate AI Description</>
+                    )}
+                  </button>
+                </div>
                 <textarea
                   className="form-control bg-light border-0 px-3 py-3"
                   rows="4"
