@@ -1,6 +1,6 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import { NavLink, useNavigate } from "react-router-dom";
-import Logo from "../assets/Logo.jpeg";
+import Logo from "../assets/WhatsApp_Image_2026-01-06_at_9.57.51_PM-removebg-preview.png";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 function NavBarHome() {

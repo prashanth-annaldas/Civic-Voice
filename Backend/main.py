@@ -9,9 +9,323 @@ from pydantic import BaseModel
 import os
 import uuid
 
-from gemini import detect_issue
-from ai_engine import analyze_issue
-from email_service import send_issue_email
+import json
+import requests as req
+import google.generativeai as genai
+from PIL import Image
+from PIL.ExifTags import TAGS, GPSTAGS
+import io
+import math
+from dotenv import load_dotenv
+import smtplib
+from email.message import EmailMessage
+from mimetypes import guess_type
+
+load_dotenv()
+
+
+load_dotenv()
+
+EMAIL_SENDER = os.getenv("EMAIL_SENDER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
+
+
+def send_issue_email(issue_data: dict, image_path: str | None = None, user_email: str | None = None):
+    if not EMAIL_SENDER or not EMAIL_PASSWORD or not EMAIL_RECEIVER:
+        raise ValueError("Missing email environment variables")
+
+    msg = EmailMessage()
+    msg["From"] = EMAIL_SENDER
+    recipients = [EMAIL_RECEIVER]
+    if user_email and user_email not in recipients:
+        recipients.append(user_email)
+    msg["To"] = ", ".join(recipients)
+
+    lat = issue_data.get("lat", "N/A")
+    lng = issue_data.get("lng", "N/A")
+    issue_type = issue_data.get("type", "unknown")
+    status = issue_data.get("status", "Pending")
+    description = issue_data.get("description", "")
+    severity = issue_data.get("severity", 0)
+    department = issue_data.get("department", "Unassigned")
+
+    is_emergency = severity >= 85
+    msg["Subject"] = f"🚨 URGENT ESCALATION: {issue_type}" if is_emergency else f"📋 New Civic Issue: {issue_type} ({department})"
+
+    maps_link = (
+        f"https://www.google.com/maps?q={lat},{lng}"
+        if lat != "N/A" and lng != "N/A"
+        else "Location not provided"
+    )
+
+    # Plain text fallback
+    text_body = f"""
+{'URGENT ESCALATION - SEVERITY CRITICAL' if is_emergency else 'New civic issue reported.'}
+
+Type: {issue_type}
+Status: {status}
+Severity Score: {severity}/100
+Routed Department: {department}
+
+Latitude: {lat}
+Longitude: {lng}
+
+Description:
+{description}
+
+Map:
+{maps_link}
+"""
+
+    emerg_html = "<h3 style='color:red;'>⚠️ URGENT ESCALATION - CRITICAL SEVERITY</h3>" if is_emergency else ""
+    
+    # HTML email
+    html_body = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif;">
+            <h2>{'🚨 Critical' if is_emergency else '📋 New'} Civic Issue Reported</h2>
+            {emerg_html}
+            
+            <p><b>Type:</b> {issue_type}</p>
+            <p><b>Status:</b> {status}</p>
+            <p><b>Severity Score:</b> <span style="color:{'red' if is_emergency else 'black'}">{severity}/100</span></p>
+            <p><b>Routed Department:</b> {department}</p>
+
+            <p>
+                <b>Location:</b><br>
+                Latitude: {lat}<br>
+                Longitude: {lng}
+            </p>
+
+            <p>
+                <a href="{maps_link}" target="_blank"
+                   style="padding:10px 14px;background:#1976d2;color:white;
+                          text-decoration:none;border-radius:6px;">
+                    📍 View on Google Maps
+                </a>
+            </p>
+
+            <p><b>Description:</b></p>
+            <p>{description}</p>
+        </body>
+    </html>
+    """
+
+    msg.set_content(text_body)
+    msg.add_alternative(html_body, subtype="html")
+
+    # Attach image safely
+    if image_path and os.path.exists(image_path):
+        mime_type, _ = guess_type(image_path)
+        maintype, subtype = (mime_type or "application/octet-stream").split("/", 1)
+
+        with open(image_path, "rb") as f:
+            msg.add_attachment(
+                f.read(),
+                maintype=maintype,
+                subtype=subtype,
+                filename=os.path.basename(image_path),
+            )
+
+    # Send email
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            server.send_message(msg)
+
+    except Exception as e:
+        print("❌ Email send failed:", e)
+
+
+load_dotenv()
+API_KEY = os.getenv("GOOGLE_API_KEY")
+if API_KEY:
+    genai.configure(api_key=API_KEY)
+
+def get_nearby_pois(lat: float, lng: float, radius: int = 500) -> list:
+    """
+    Uses OpenStreetMap Overpass API to find critical POIs (hospitals, schools, etc.) near the location.
+    """
+    overpass_url = "http://overpass-api.de/api/interpreter"
+    overpass_query = f"""
+    [out:json];
+    (
+      node["amenity"="hospital"](around:{radius},{lat},{lng});
+      node["amenity"="school"](around:{radius},{lat},{lng});
+      node["station"="subway"](around:{radius},{lat},{lng});
+      node["railway"="station"](around:{radius},{lat},{lng});
+    );
+    out center;
+    """
+    try:
+        response = requests.post(overpass_url, data={'data': overpass_query}, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            pois = []
+            for element in data.get('elements', []):
+                tags = element.get('tags', {})
+                name = tags.get('name', 'Unknown POI')
+                poi_type = tags.get('amenity', tags.get('station', tags.get('railway', 'critical location')))
+                pois.append(f"{name} ({poi_type})")
+            return pois
+    except Exception as e:
+        print("Error fetching POIs:", e)
+    return []
+
+def get_exif_gps(image):
+    exif = image._getexif()
+    if not exif: return None
+    gps_info = {}
+    for tag, value in exif.items():
+        decoded = TAGS.get(tag, tag)
+        if decoded == "GPSInfo":
+            for t in value:
+                sub_decoded = GPSTAGS.get(t, t)
+                gps_info[sub_decoded] = value[t]
+    if not gps_info or "GPSLatitude" not in gps_info:
+        return None
+    
+    def convert_to_degrees(value):
+        d, m, s = value
+        return float(d) + (float(m) / 60.0) + (float(s) / 3600.0)
+    
+    lat = convert_to_degrees(gps_info["GPSLatitude"])
+    if gps_info.get("GPSLatitudeRef") != "N": lat = -lat
+    lng = convert_to_degrees(gps_info["GPSLongitude"])
+    if gps_info.get("GPSLongitudeRef") != "E": lng = -lng
+    return lat, lng
+
+def analyze_issue(image_bytes: bytes, lat: float, lng: float, similar_issues_count: int = 0, user_description: str = "") -> dict:
+    """
+    Analyzes the issue image using Gemini, considers nearby POIs, EXIF GPS, and calculates a severity score.
+    Returns: label, damage_level, severity_score, department, is_fake
+    """
+    is_fake = False
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        try:
+            exif_gps = get_exif_gps(image)
+            if exif_gps:
+                exif_lat, exif_lng = exif_gps
+                # Simple haversine inline approx
+                R = 6371000
+                dlat = math.radians(exif_lat - lat)
+                dlng = math.radians(exif_lng - lng)
+                a = math.sin(dlat/2)**2 + math.cos(math.radians(lat)) * math.cos(math.radians(exif_lat)) * math.sin(dlng/2)**2
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                distance = R * c
+                if distance > 1000: # more than 1km away
+                    is_fake = True
+        except: pass
+
+        pois = get_nearby_pois(lat, lng)
+        poi_context = "None" if not pois else ", ".join(pois)
+
+        model = genai.GenerativeModel("gemini-2.5-flash")
+
+        desc_context = f"\n        - User Description: {user_description}" if user_description else ""
+
+        prompt = f"""
+        You are an AI City Governance Assistant. Analyze the provided image of a city issue.
+        Context:
+        - Location: Lat {lat}, Lng {lng}
+        - Nearby Critical Locations (within 500m): {poi_context}
+        - Number of similar previous complaints in this area: {similar_issues_count}{desc_context}
+
+        Task:
+        1. Identify the issue type (e.g., Pothole, Garbage, Water Leak, Street Light, Electric Transformer, etc.).
+        2. Assess the damage level from the image (Low, Medium, High).
+        3. Calculate a dynamic Severity Score (0-100) based on:
+           - Inherent danger of the issue type (e.g., Water Leak or Transformer is higher than Garbage).
+           - Proximity to critical locations (boost score if near schools/hospitals).
+           - Repeated complaints (boost score if {similar_issues_count} > 0).
+           - Visual damage level.
+        4. Assign it to the correct department (e.g., Municipality, Water Department, Electricity Department, Roads & Safety).
+
+        Output ONLY valid JSON in this exact format:
+        {{
+            "issue_type": "string",
+            "damage_level": "string",
+            "severity_score": int,
+            "department": "string"
+        }}
+        """
+
+        response = model.generate_content([prompt, image])
+        # Clean markdown formatting from response if present
+        text = response.text.strip()
+        print("Gemini Raw Response:", text)
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+        result = json.loads(text)
+        
+        # Ensure it falls into expected bounds
+        score = max(0, min(100, int(result.get("severity_score", 0))))
+        result["severity_score"] = score
+        result["is_fake"] = is_fake
+        return result
+
+    except Exception as e:
+        print("AI Analysis Error:", e)
+        print("Raw text that failed parsing:", text if 'text' in locals() else 'None')
+        import traceback
+        traceback.print_exc()
+        res = default_analysis()
+        res["issue_type"] = f"Unknown (Error: {str(e)})"
+        res["is_fake"] = is_fake
+        return res
+
+def default_analysis():
+    return {
+        "issue_type": "Unknown",
+        "damage_level": "Unknown",
+        "severity_score": 30,
+        "department": "Unassigned",
+        "is_fake": False
+    }
+
+def categorize_severity(score: int) -> str:
+    if score <= 30:
+        return "Low"
+    elif score <= 70:
+        return "Medium"
+    else:
+        return "Critical"
+
+def generate_description(image_bytes: bytes, lat: float, lng: float) -> str:
+    """
+    Analyzes the image and returns a short natural language description of the problem.
+    """
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        pois = get_nearby_pois(lat, lng)
+        poi_context = "none" if not pois else ", ".join(pois)
+        
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        
+        prompt = f"""
+        You are a helpful assistant reporting a civic issue or infrastructure problem to the city.
+        Look at the provided photo of the issue.
+        The issue is located at Lat {lat}, Lng {lng}. 
+        Nearby landmarks: {poi_context}.
+        
+        Write a concise, professional, clear 1-3 sentence description of the problem exactly as you see it in the image, 
+        suitable for submitting to a city maintenance department. Do not use quotes or introductory phrases. Just the description.
+        """
+        
+        response = model.generate_content([prompt, image])
+        text = response.text.strip()
+        return text
+    except Exception as e:
+        print("Generate description error:", e)
+        return "Failed to generate description automatically. Please enter it manually."
+
+
+
 from database import engine, SessionLocal, Base
 from models import Issue, User, Cluster
 from schemas import RegisterRequest
@@ -442,7 +756,6 @@ async def api_generate_description(
     lng: float = Form(...)
 ):
     try:
-        from ai_engine import generate_description
         image_bytes = await file.read()
         description = generate_description(image_bytes, lat, lng)
         return {"description": description}
@@ -589,11 +902,10 @@ def get_area_health(db: Session = Depends(get_db)):
 class ChatbotRequest(BaseModel):
     message: str
 
-@app.post("/chatbot/parse")
-def chatbot_parse(data: ChatbotRequest):
+@app.post("/chatbot/chat")
+def chatbot_chat(data: ChatbotRequest):
     import google.generativeai as genai
     import os
-    import json
     
     API_KEY = os.getenv("GOOGLE_API_KEY")
     if not API_KEY:
@@ -604,18 +916,11 @@ def chatbot_parse(data: ChatbotRequest):
         model = genai.GenerativeModel("gemini-2.5-flash")
         
         prompt = f"""
-        You are a smart city assistant. Extract the following details from this citizen complaint:
-        "{data.message}"
-        
-        Output exact JSON only with these keys:
-        - issue_type (Pothole, Garbage, Water Leak, Street Light, etc.)
-        - location (any address, landmark, or street mentioned)
-        - urgency (Low, Medium, High based on tone and danger)
-        - description (a clean summary of the issue)
+        You are a smart city AI assistant for CivicVoice. Answer the user's question politely and concisely.
+        User message: "{data.message}"
         """
         response = model.generate_content(prompt)
-        text = response.text.replace("```json", "").replace("```", "").strip()
-        parsed = json.loads(text)
-        return {"parsed": parsed, "message": "I found these details. Would you like to submit this report?"}
+        text = response.text.strip()
+        return {"reply": text}
     except Exception as e:
         return {"error": str(e)}

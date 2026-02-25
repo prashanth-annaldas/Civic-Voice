@@ -5,11 +5,10 @@ const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 function Chatbot() {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { role: "assistant", content: "Hi! Describe an issue you see, and I'll help report it." }
+        { role: "assistant", content: "Hi! I'm the Civic AI Assistant. How can I help you today?" }
     ]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
-    const [parsedData, setParsedData] = useState(null);
 
     const handleSend = async () => {
         if (!input.trim()) return;
@@ -19,7 +18,7 @@ function Chatbot() {
         setLoading(true);
 
         try {
-            const res = await fetch(`${API_URL}/chatbot/parse`, {
+            const res = await fetch(`${API_URL}/chatbot/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: userMsg })
@@ -29,53 +28,12 @@ function Chatbot() {
             if (data.error) {
                 setMessages(prev => [...prev, { role: "assistant", content: `Error: ${data.error}` }]);
             } else {
-                setParsedData(data.parsed);
-                const reply = `I found these details:\n- Type: ${data.parsed.issue_type}\n- Location: ${data.parsed.location}\n- Urgency: ${data.parsed.urgency}\n\nShall I submit this report using your current GPS location?`;
-                setMessages(prev => [...prev, { role: "assistant", content: reply, showSubmit: true }]);
+                setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
             }
         } catch (err) {
             setMessages(prev => [...prev, { role: "assistant", content: "Sorry, I couldn't process your request." }]);
         }
         setLoading(false);
-    };
-
-    const handleSubmitReport = () => {
-        if ("geolocation" in navigator && parsedData) {
-            setLoading(true);
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const { latitude, longitude } = position.coords;
-                try {
-                    // We'll use the existing /requests endpoint which takes description, lat, lng
-                    const token = localStorage.getItem("token");
-                    const headers = { "Content-Type": "application/json" };
-                    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-                    const res = await fetch(`${API_URL}/requests`, {
-                        method: "POST",
-                        headers: headers,
-                        body: JSON.stringify({
-                            description: `[AI Reported] ${parsedData.issue_type} near ${parsedData.location} | Urgency: ${parsedData.urgency} | ${parsedData.description}`,
-                            latitude,
-                            longitude
-                        })
-                    });
-                    if (res.ok) {
-                        setMessages(prev => [...prev, { role: "assistant", content: "✅ Report submitted successfully!" }]);
-                        setParsedData(null);
-                    } else {
-                        setMessages(prev => [...prev, { role: "assistant", content: "❌ Submission failed." }]);
-                    }
-                } catch (e) {
-                    setMessages(prev => [...prev, { role: "assistant", content: "❌ Network error." }]);
-                }
-                setLoading(false);
-            }, () => {
-                setMessages(prev => [...prev, { role: "assistant", content: "❌ Please enable location services to submit." }]);
-                setLoading(false);
-            });
-        } else {
-            setMessages(prev => [...prev, { role: "assistant", content: "Geolocation is not supported by your browser." }]);
-        }
     };
 
     return (
@@ -112,14 +70,9 @@ function Chatbot() {
                                 }}>
                                     {m.content}
                                 </div>
-                                {m.showSubmit && (
-                                    <button onClick={handleSubmitReport} disabled={loading} style={{ marginTop: "8px", padding: "8px 12px", background: "#1cc88a", color: "white", border: "none", borderRadius: "6px", fontSize: "13px", cursor: "pointer" }}>
-                                        {loading ? "Submitting..." : "Submit Report 📍"}
-                                    </button>
-                                )}
                             </div>
                         ))}
-                        {loading && !messages[messages.length - 1]?.showSubmit && (
+                        {loading && (
                             <div style={{ alignSelf: "flex-start", background: "#eaecf4", color: "#5a5c69", padding: "10px 14px", borderRadius: "15px", fontSize: "14px", fontStyle: "italic" }}>Typing...</div>
                         )}
                     </div>
@@ -128,7 +81,7 @@ function Chatbot() {
                     <div style={{ display: "flex", padding: "10px", borderTop: "1px solid #e3e6f0", background: "white" }}>
                         <input
                             style={{ flex: 1, padding: "10px 15px", border: "1px solid #d1d3e2", borderRadius: "20px", outline: "none", fontSize: "14px" }}
-                            placeholder="E.g. The streetlight is broken"
+                            placeholder="Type your message..."
                             value={input}
                             onChange={e => setInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleSend()}
