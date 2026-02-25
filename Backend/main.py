@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -558,7 +558,7 @@ def update_me(data: UserUpdateModel, current_user: User = Depends(get_current_us
 
 # ---------------- CREATE MANUAL REQUEST ----------------
 @app.post("/requests")
-def create_request(data: RequestIn, request: Request, db: Session = Depends(get_db)):
+def create_request(data: RequestIn, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     uploader_id = None
     user_email = None
     auth_header = request.headers.get("Authorization")
@@ -588,13 +588,13 @@ def create_request(data: RequestIn, request: Request, db: Session = Depends(get_
     db.refresh(issue)
 
     try:
-        send_issue_email({
+        background_tasks.add_task(send_issue_email, {
             "description": data.description,
             "lat": data.latitude,
             "lng": data.longitude,
             "status": "Pending",
             "type": "Manual"
-        }, user_email=user_email)
+        }, image_path=None, user_email=user_email)
     except Exception as e:
         print("Email failed:", e)
 
@@ -617,6 +617,7 @@ def haversine(lat1, lon1, lat2, lon2):
 @app.post("/upload")
 async def upload(
     request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     lat: float = Form(...),
     lng: float = Form(...),
@@ -711,7 +712,7 @@ async def upload(
         db.refresh(issue)
 
         try:
-            send_issue_email(
+            background_tasks.add_task(send_issue_email,
                 {
                     "type": ai_data["issue_type"],
                     "lat": lat,
