@@ -345,9 +345,20 @@ def home():
 
 
 # ---------------- STARTUP EVENT ----------------
+from sqlalchemy import text
+
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        db.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'USER';"))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        pass
+    finally:
+        db.close()
 
 
 # ---------------- CORS ----------------
