@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import "./StaffDashboard.css";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -78,6 +79,7 @@ const StaffDashboard = () => {
     }
 
     return (
+        <div className="staff-dashboard-page">
         <div className="container mb-5" style={{ paddingTop: "100px" }}>
             <h2 className="mb-4 text-center" style={{ fontWeight: "700", color: "#2c3e50" }}>
                 Staff Operations Dashboard
@@ -160,6 +162,7 @@ const StaffDashboard = () => {
                     })}
                 </div>
             )}
+        </div>
         </div>
     );
 };

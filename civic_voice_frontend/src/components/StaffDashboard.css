@@ -1,0 +1,8 @@
+.staff-dashboard-page {
+  min-height: 100vh;
+  background: url("../assets/image.png");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  padding: 90px 0 70px;
+}

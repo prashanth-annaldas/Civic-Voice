@@ -1,7 +1,10 @@
 /* ================= ABOUT PAGE ================= */
 .about-page {
   min-height: 100vh;
-  background-color: #f8f9fa;
+  background: url("../assets/image.png");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   /* Sleek light mode base */
   padding-top: 80px;
 }

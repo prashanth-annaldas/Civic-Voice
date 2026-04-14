@@ -40,13 +40,13 @@ function About() {
         </div>
 
         {/* MISSION SECTION */}
-        <div className="row g-5 align-items-center mb-5 p-4 rounded-5 about-mission-section shadow-lg mx-0">
-          <div className="col-lg-6">
+        <div className="row justify-content-center align-items-center mb-5 p-4 rounded-5 about-mission-section shadow-lg mx-0">
+          <div className="col-lg-10 text-center mx-auto">
             <h2 className="fw-bold mb-4" style={{ color: "var(--bs-primary)" }}>Our Mission</h2>
             <p className="text-dark fs-5" style={{ lineHeight: '1.8' }}>
               We envision cities where communities actively collaborate to improve their living environment. By replacing archaic reporting systems with an intelligent, centralized, and transparent platform, Civic Voice guarantees that every pothole, leak, and broken streetlight is not just heard—but resolved.
             </p>
-            <ul className="list-unstyled mt-4">
+            <ul className="list-unstyled mt-4 d-inline-block text-start">
               <li className="d-flex align-items-center mb-3">
                 <i className="bi bi-check-circle-fill text-success fs-4 me-3"></i>
                 <span className="fs-5 fw-medium">Real-time Heatmap Tracking</span>
@@ -60,16 +60,6 @@ function About() {
                 <span className="fs-5 fw-medium">Community Civic Trust Integration</span>
               </li>
             </ul>
-          </div>
-          <div className="col-lg-6 text-center">
-            <div className="about-image-wrapper p-3 rounded-5 shadow-lg d-inline-block bg-white">
-              <img
-                src="https://www.bitsathy.ac.in/wp-content/uploads/ew-what-is-generative-ai-model-1.png"
-                alt="Civic Voice Vision"
-                className="img-fluid rounded-4"
-                style={{ objectFit: 'cover', height: '400px', width: '100%' }}
-              />
-            </div>
           </div>
         </div>
 
